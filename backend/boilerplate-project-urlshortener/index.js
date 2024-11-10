@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const dns = require("dns");
+const morgan = require("morgan");
 const app = express();
 let bodyParser = require("body-parser");
 
@@ -9,9 +10,16 @@ let bodyParser = require("body-parser");
 const port = process.env.PORT || 3000;
 
 app.use(cors());
+app.use(morgan("dev")); // Adiciona o middleware morgan
 
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+
+// Middleware para registrar o corpo das requisições
+app.use((req, res, next) => {
+  console.log("Request Body:", req.body);
+  next();
+});
 
 app.use("/public", express.static(`${process.cwd()}/public`));
 
@@ -28,26 +36,23 @@ let urlDatabase = [];
 
 app.post("/api/shorturl", (req, res) => {
   const url = req.body.url;
-  const urlRegex = /^https?:\/\/(www\.)?[\w-]+\.[a-z]{2,4}/gi;
-  if (!urlRegex.test(url)) {
-    res.json({ error: "invalid url" });
-  } else {
-    const hostname = new URL(url).hostname;
-    dns.lookup(hostname, (err) => {
-      if (err) {
-        res.json({ error: "invalid url" });
-      } else {
-        const shortUrl = urlDatabase.length + 1;
-        urlDatabase.push({ shortUrl, url });
-        res.json({ original_url: url, short_url: shortUrl });
-      }
-    });
-  }
+  console.log(url);
+  const hostname = new URL(url).hostname;
+  dns.lookup(hostname, (err) => {
+    if (err) {
+      res.json({ error: "invalid url" });
+    } else {
+      const shortUrl = urlDatabase.length + 1;
+      urlDatabase.push({ shortUrl: shortUrl, url: url });
+      console.log(urlDatabase);
+      res.json({ original_url: url, short_url: shortUrl });
+    }
+  });
 });
 
 app.get("/api/shorturl/:short_url", (req, res) => {
-  const shortUrl = req.params.short_url;
-  const urlEntry = urlDatabase.find((entry) => entry.shortUrl == shortUrl);
+  const shortUrl = parseInt(req.params.short_url);
+  const urlEntry = urlDatabase.find((entry) => entry.shortUrl === shortUrl);
   if (urlEntry) {
     res.redirect(urlEntry.url);
   } else {
